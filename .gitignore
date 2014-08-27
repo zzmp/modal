@@ -1,0 +1,5 @@
+/index.js
+/index.min.js
+/node_modules/
+/lib/
+**/*.swp

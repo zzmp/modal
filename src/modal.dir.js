@@ -20,9 +20,23 @@ angular.module('modal')
       controllerAs: 'modal',
       controller: function($scope, $q) {
         var deferred = $q.defer();
-        this.resolve = deferred.resolve;
-        this.reject = deferred.reject;
         this.promise = deferred.promise;
+
+        this.close = function() {
+          deferred.resolve();
+          close();
+        };
+        this.dismiss = function() {
+          deferred.reject();
+          close();
+        }
+        function close() {
+          body.children().removeClass('modal-blur');
+
+          modal = false;
+          if ($scope.service)
+            el.remove();
+        }
 
         this.blur = function(el) {
           body.children().addClass('modal-blur');
@@ -32,7 +46,9 @@ angular.module('modal')
             parent = parent.parent();
           }
 
-          // Expose promise/blur to the service
+          // Expose to the service
+          $scope.$close = this.close;
+          $scope.$dismiss = this.dismiss;
           $scope.promise = this.promise;
           $scope.blur = this.blur;
         };
@@ -43,28 +59,11 @@ angular.module('modal')
 
         ctrl.blur(el);
 
-        // FIXME: refactor to controller
-        scope.$close = function() {
-          ctrl.resolve();
-          close();
-        };
-        scope.$dismiss = function() {
-          ctrl.reject();
-          close();
-        };
-        function close() {
-          body.children().removeClass('modal-blur');
-
-          modal = false;
-          if (service)
-            el.remove();
-        }
-
         // Listen for `ESC`
         var esc = function esc(e) {
           if (e.which === 27) {
             $document.off('keyup', esc);
-            scope.$dismiss();
+            ctrl.dismiss();
           }
         };
         $document.on('keyup', esc);
@@ -74,7 +73,8 @@ angular.module('modal')
           // FIXME: blur is not a target
           if (e.target === blur) {
             $document.off('click', off);
-            scope.$dismiss();
+            ctrl.dismiss();
+
           }
         };
         $document.on('click', off);
@@ -100,8 +100,8 @@ angular.module('modal')
             var cloneScope = clone.scope();
 
             // Expose `.close` to transcluded scope
-            cloneScope.$close = scope.$close;
-            cloneScope.$dismiss = scope.$dismiss;
+            cloneScope.$close = ctrl.close.bind(ctrl);
+            cloneScope.$dismiss = ctrl.dismiss.bind(ctrl);
 
             // Transclude the element manually
             el.find('div').append(clone);
@@ -112,7 +112,7 @@ angular.module('modal')
               delete cloneScope.$close;
 
               if (modal)
-                scope.$close();
+                ctrl.close();
             });
           }
         });

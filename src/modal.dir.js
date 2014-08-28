@@ -1,10 +1,14 @@
 angular.module('modal')
-  .directive('modal', function($rootScope, $compile, $document) {
+  .directive('modal', function($rootScope, $compile, $document, $templateCache, $http) {
+    var body = $document.find('body');
+
     return {
       restrict: 'A',
       transclude: 'true',
       scope: {
+        // TODO
         width: '&?',
+        // TODO
         height: '&?',
         template: '&?',
         templateUrl: '&?',
@@ -14,26 +18,32 @@ angular.module('modal')
       template: '<div class="modal-focus">',
       require: 'modal',
       controllerAs: 'modal',
-      controller: function($q) {
+      controller: function($scope, $q) {
         var deferred = $q.defer();
         this.resolve = deferred.resolve;
         this.reject = deferred.reject;
         this.promise = deferred.promise;
+
+        this.blur = function(el) {
+          body.children().addClass('modal-blur');
+          var parent = el;
+          while (parent.length) {
+            parent.removeClass('modal-blur');
+            parent = parent.parent();
+          }
+
+          // Expose promise/blur to the service
+          $scope.promise = this.promise;
+          $scope.blur = this.blur;
+        };
       },
       link:  function(scope, el, attrs , ctrl, transclude) {
-        var blur = angular.element(el.children()[0]);
-        var body = $document.find('body');
         var modal = true;
         var service = attrs.hasOwnProperty('service');
 
-        // TODO: Move this to the service
-        body.children().addClass('modal-blur');
-        var parent = el;
-        while (parent.length) {
-          parent.removeClass('modal-blur');
-          parent = parent.parent();
-        }
+        ctrl.blur(el);
 
+        // FIXME: refactor to controller
         scope.$close = function() {
           ctrl.resolve();
           close();
@@ -61,6 +71,7 @@ angular.module('modal')
 
         // Listen for off-modal clicks
         var off = function off(e) {
+          // FIXME: blur is not a target
           if (e.target === blur) {
             $document.off('click', off);
             scope.$dismiss();
@@ -69,23 +80,41 @@ angular.module('modal')
         $document.on('click', off);
 
         transclude(function transcludeModal(clone) {
-          var cloneScope = clone.scope();
+          if (scope.template() || scope.templateUrl()) {
+            var template =
+              scope.template() || $templateCache.get(scope.templateUrl());
 
-          // Expose `.close` to transcluded scope
-          cloneScope.$close = scope.$close;
-          cloneScope.$dismiss = scope.$dismiss;
+            if (!template) {
+              $http.get(scope.templateUrl()).success(function(template) {
+                $templateCache.put(scope.templateUrl(), template);
+              });
+                transcludeModalClone(
+                  $compile(template)(scope.scope || scope, scope.controller()));
+            } else
+              transcludeModalClone(
+                $compile(template)(scope.scope || scope, scope.controller()));
+          } else
+            transcludeModalClone(clone);
 
-          // Transclude the element manually
-          el.find('div').append(clone);
+          function transcludeModalClone(clone) {
+            var cloneScope = clone.scope();
 
-          // Listen for $destroy on transcluded element
-          clone.on('$destroy', function() {
-            // Cleanup on aisle `transclude`
-            delete cloneScope.$close;
+            // Expose `.close` to transcluded scope
+            cloneScope.$close = scope.$close;
+            cloneScope.$dismiss = scope.$dismiss;
 
-            if (modal)
-              scope.$close();
-          });
+            // Transclude the element manually
+            el.find('div').append(clone);
+
+            // Listen for $destroy on transcluded element
+            clone.on('$destroy', function() {
+              // Cleanup on aisle `transclude`
+              delete cloneScope.$close;
+
+              if (modal)
+                scope.$close();
+            });
+          }
         });
       }
     };

@@ -23,7 +23,7 @@ function modalFn($rootScope, $compile, $q, $document, $http, $templateCache) {
 
     function modalize(template, options) {
       var scope = $rootScope.$new(true);
-      var tEl = ['<div modal service'];
+      var tEl = ['<div modal'];
 
       angular.forEach(options, function(val, attr) {
         scope[attr] = val;
@@ -34,6 +34,7 @@ function modalFn($rootScope, $compile, $q, $document, $http, $templateCache) {
       var el = $compile(tEl.join(' '))(scope);
 
       scope = el.children().scope();
+      scope.service = true;
       scope.promise.then(deferred.resolve, deferred.reject);
 
       $document.find('body').append(el);

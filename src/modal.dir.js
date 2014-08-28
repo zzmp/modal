@@ -15,10 +15,14 @@ angular.module('modal')
         scope: '=?',
         controller: '&?'
       },
-      template: '<div class="modal-focus">',
+      template:
+        '<div class="modal-clickbait"></div>' +
+        '<div class="modal-focus"></div>',
       require: 'modal',
       controllerAs: 'modal',
       controller: function($scope, $q) {
+        this.link = function(el) { $scope.el = el; };
+
         var deferred = $q.defer();
         this.promise = deferred.promise;
 
@@ -35,7 +39,7 @@ angular.module('modal')
 
           modal = false;
           if ($scope.service)
-            el.remove();
+            $scope.el.remove();
         }
 
         this.blur = function(el) {
@@ -54,9 +58,10 @@ angular.module('modal')
         };
       },
       link:  function(scope, el, attrs , ctrl, transclude) {
+        var blur = el.children()[0];
         var modal = true;
-        var service = attrs.hasOwnProperty('service');
 
+        ctrl.link(el);
         ctrl.blur(el);
 
         // Listen for `ESC`
@@ -70,7 +75,6 @@ angular.module('modal')
 
         // Listen for off-modal clicks
         var off = function off(e) {
-          // FIXME: blur is not a target
           if (e.target === blur) {
             $document.off('click', off);
             ctrl.dismiss();
@@ -111,8 +115,10 @@ angular.module('modal')
               // Cleanup on aisle `transclude`
               delete cloneScope.$close;
 
-              if (modal)
+              if (modal) {
+                modal = false;
                 ctrl.close();
+              }
             });
           }
         });
